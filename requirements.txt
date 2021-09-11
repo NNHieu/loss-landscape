@@ -1,0 +1,9 @@
+mpi4py
+numpy
+h5py
+matplotlib
+sklearn
+scipy
+jupyterlab
+ipywidgets
+seaborn
