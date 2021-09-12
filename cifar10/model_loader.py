@@ -4,6 +4,7 @@ import cifar10.models.vgg as vgg
 import cifar10.models.resnet as resnet
 import cifar10.models.densenet as densenet
 import cifar10.models.deq as deq
+import cifar10.models.repnet as rep
 
 # map between model name and function
 models = {
@@ -37,6 +38,7 @@ models = {
     'wrn110_2_noshort'      : resnet.WRN110_2_noshort,
     'wrn110_4_noshort'      : resnet.WRN110_4_noshort,
     'deq'                   : deq.SimpleDEQ,
+    'rep5'                  : rep.repeatNet5,
 }
 
 def load(model_name, model_file=None, data_parallel=False):
@@ -49,6 +51,8 @@ def load(model_name, model_file=None, data_parallel=False):
         stored = torch.load(model_file, map_location=lambda storage, loc: storage)
         if 'state_dict' in stored.keys():
             net.load_state_dict(stored['state_dict'])
+        elif 'model' in stored.keys():
+            net.load_state_dict(stored['model'])
         else:
             net.load_state_dict(stored)
 
