@@ -39,6 +39,9 @@ models = {
     'wrn110_4_noshort'      : resnet.WRN110_4_noshort,
     'deq'                   : deq.SimpleDEQ,
     'rep5'                  : rep.repeatNet5,
+    'rep10'                 : rep.repeatNet10,
+    'rep17'                 : rep.repeatNet17,
+
 }
 
 def load(model_name, model_file=None, data_parallel=False):

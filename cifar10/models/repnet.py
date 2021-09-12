@@ -62,3 +62,9 @@ def repeatNet(num_repeat):
 
 def repeatNet5():
     return repeatNet(5)
+
+def repeatNet10():
+    return repeatNet(10)
+
+def repeatNet17():
+    return repeatNet(17)
