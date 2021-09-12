@@ -12,11 +12,9 @@ from torch.utils.data import DataLoader
 
 import torch.optim as optim
 
-import tqdm as tqdm
 import os
 import argparse
 
-torch.manual_seed(0)
 
 class ResNetLayer(nn.Module): 
     def __init__(self, n_channels, n_inner_channels, kernel_size=3, num_groups=8): 
