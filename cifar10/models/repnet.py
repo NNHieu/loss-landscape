@@ -57,7 +57,7 @@ def repeatNet(num_repeat):
                             nn.BatchNorm2d(chan), 
                             nn.AvgPool2d(8,8), 
                             nn.Flatten(), 
-                            nn.Linear(chan*4*4,10)).to(device)
+                            nn.Linear(chan*4*4,10))
     return model
 
 def repeatNet5():
