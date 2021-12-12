@@ -24,6 +24,9 @@ import model_loader
 import scheduler
 import mpi4pytorch as mpi
 
+from viztool.landscape import Surface, Sampler, Dir2D
+from viztool import scheduler, projection as proj
+
 def name_surface_file(args, dir_file):
     # skip if surf_file is specified in args
     if args.surf_file:
@@ -207,6 +210,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     torch.manual_seed(123)
+    
     #--------------------------------------------------------------------------
     # Environment setup
     #--------------------------------------------------------------------------
@@ -252,23 +256,41 @@ if __name__ == '__main__':
     # Setup the direction file and the surface file
     #--------------------------------------------------------------------------
     dir_file = net_plotter.name_direction_file(args) # name the direction file
-    if rank == 0:
-        net_plotter.setup_direction(args, dir_file, net)
+    # if rank == 0:
+    #     net_plotter.setup_direction(args, dir_file, net)
 
     surf_file = name_surface_file(args, dir_file)
-    if rank == 0:
-        setup_surface_file(args, surf_file, dir_file)
+    # if rank == 0:
+    #     setup_surface_file(args, surf_file, dir_file)
 
-    # wait until master has setup the direction file and surface file
-    mpi.barrier(comm)
+    # # wait until master has setup the direction file and surface file
+    # mpi.barrier(comm)
 
-    # load directions
-    d = net_plotter.load_directions(dir_file)
-    # calculate the consine similarity of the two directions
-    if len(d) == 2 and rank == 0:
-        similarity = proj.cal_angle(proj.nplist_to_tensor(d[0]), proj.nplist_to_tensor(d[1]))
-        print('cosine similarity between x-axis and y-axis: %f' % similarity)
-
+    # # load directions
+    # d = net_plotter.load_directions(dir_file)
+    # # calculate the consine similarity of the two directions
+    # if len(d) == 2 and rank == 0:
+    #     similarity = proj.cal_angle(proj.nplist_to_tensor(d[0]), proj.nplist_to_tensor(d[1]))
+    #     print('cosine similarity between x-axis and y-axis: %f' % similarity)
+    print(dir_file)
+    if not os.path.exists(dir_file):
+        print('create dir file')
+        dir2d = Dir2D(model=model)
+        with h5py.File(args.dir_file, 'w') as f:
+            dir2d.save(f)
+    
+    if not os.path.exists(surf_file):
+        print('Creat surface file')
+        surface = Surface(dir_file, (args.xmin, args.ymin, args.xmax, args.ymax), (args.xnum, args.ynum), surf_file, {})
+        surface.add_layer('train_loss')
+        surface.add_layer('train_acc')
+        surface.save()
+    else:
+        surface = Surface.load(surf_file)
+    dir2d = surface.dirs
+    similarity = proj.cal_angle(proj.nplist_to_tensor(dir2d[0]), proj.nplist_to_tensor(dir2d[1]))
+    print('cosine similarity between x-axis and y-axis: %f' % similarity)
+    
     #--------------------------------------------------------------------------
     # Setup dataloader
     #--------------------------------------------------------------------------
@@ -276,19 +298,30 @@ if __name__ == '__main__':
     if rank == 0 and args.dataset == 'cifar10':
         torchvision.datasets.CIFAR10(root=args.dataset + '/data', train=True, download=True)
 
-    mpi.barrier(comm)
+    # mpi.barrier(comm)
 
     trainloader, testloader = dataloader.load_dataset(args.dataset, args.datapath,
                                 args.batch_size, args.threads, args.raw_data,
                                 args.data_split, args.split_idx,
                                 args.trainloader, args.testloader)
 
-    #--------------------------------------------------------------------------
-    # Start the computation
-    #--------------------------------------------------------------------------
-    crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
-    # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
+    # #--------------------------------------------------------------------------
+    # # Start the computation
+    # #--------------------------------------------------------------------------
+    # crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
+    # # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
+    criterion = nn.CrossEntropyLoss()
+    if args.loss_name == 'mse':
+        criterion = nn.MSELoss()
 
+    sampler = Sampler(net, surface, ('train_loss', 'train_acc'), 'cuda:0')
+    sampler.prepair()
+    inds, coords, inds_nums = scheduler.get_job_indices(*surface.get_unplotted_indices('train_loss'), 0, 1)
+    surface.open('r+')
+    def evaluate(net):
+        return evaluation.eval_loss(net, criterion, trainloader, args.cuda)
+    sampler.run(evaluate, inds, coords, inds_nums)
+    surface.close()
     #--------------------------------------------------------------------------
     # Plot figures
     #--------------------------------------------------------------------------

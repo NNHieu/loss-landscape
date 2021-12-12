@@ -23,4 +23,4 @@ def write_list(f, name, direction):
 def read_list(f, name):
     """ Read group with name as the key from the hdf5 file and return a list numpy vectors. """
     grp = f[name]
-    return [grp[str(i)] for i in range(len(grp))]
+    return [grp[str(i)][:] for i in range(len(grp))]
